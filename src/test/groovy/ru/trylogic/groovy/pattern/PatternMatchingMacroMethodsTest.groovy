@@ -135,8 +135,6 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
 '''
     }
 
-    //FIXME macro methods are not working inside closure :( wtf?
-    @NotYetImplemented
     public void testClosureMatchInClosure() {
         assertScript '''
         def matcher = { Date date ->
