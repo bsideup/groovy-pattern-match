@@ -2,6 +2,7 @@ package ru.trylogic.groovy.pattern;
 
 import groovy.lang.Closure;
 import groovy.lang.GroovyRuntimeException;
+import org.codehaus.groovy.ast.ASTNode;
 import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.expr.*;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
@@ -14,9 +15,10 @@ import org.codehaus.groovy.syntax.Token;
 import org.codehaus.groovy.syntax.Types;
 import ru.trylogic.groovy.macro.transform.Macro;
 import ru.trylogic.groovy.macro.transform.MacroContext;
+import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
+import ru.trylogic.groovy.pattern.matcher.cases.MatchCase;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import static org.codehaus.groovy.ast.tools.GeneralUtils.*;
 
@@ -51,29 +53,21 @@ public class PatternMatchingMacroMethods {
             statements = Arrays.asList(originalCode);
         }
 
-        BlockStatement resultBlock = block();
+        List<MatchCase> conditions = new ArrayList<MatchCase>();
+
+        VariableExpression parameterExpression = varX(PatternMatchingMacroMethods.MATCH_PARAMETER_NAME);
+
+        MatchCaseFactory matchCaseFactory = new MatchCaseFactory();
         for (Statement statement : statements) {
             if (!(statement instanceof ExpressionStatement)) {
-                SyntaxException syntaxException = new SyntaxException("only ExpressionStatement is allowed as case",
-                        statement.getLineNumber(),
-                        statement.getColumnNumber(),
-                        statement.getLastLineNumber(),
-                        statement.getLastColumnNumber()
-                );
-                sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
+                addErrorAndContinue(sourceUnit, "only ExpressionStatement is allowed as case", statement);
                 continue;
             }
 
             Expression caseExpression = ((ExpressionStatement) statement).getExpression();
 
             if (!(caseExpression instanceof BinaryExpression)) {
-                SyntaxException syntaxException = new SyntaxException("case should be BinaryExpression",
-                        caseExpression.getLineNumber(),
-                        caseExpression.getColumnNumber(),
-                        caseExpression.getLastLineNumber(),
-                        caseExpression.getLastColumnNumber()
-                );
-                sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
+                addErrorAndContinue(sourceUnit, "case should be BinaryExpression", caseExpression);
                 continue;
             }
 
@@ -81,20 +75,33 @@ public class PatternMatchingMacroMethods {
 
             Token operation = binaryExpression.getOperation();
             if (!operation.isA(Types.RIGHT_SHIFT)) {
-                SyntaxException syntaxException = new SyntaxException("case expressions should be divided by >>",
-                        operation.getStartLine(),
-                        operation.getStartColumn()
-                );
-                sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
+                addErrorAndContinue(sourceUnit, "case expressions should be divided by >>", operation);
                 continue;
             }
 
-            resultBlock.addStatement(ifS(
-                    getCaseExpression(binaryExpression.getLeftExpression()),
-                    returnS(binaryExpression.getRightExpression())
-            ));
+            MatchCase matchCaseProvider = matchCaseFactory.getCaseConditionProvider(
+                    parameterExpression,
+                    binaryExpression.getLeftExpression(),
+                    binaryExpression.getRightExpression());
+            
+            conditions.add(matchCaseProvider);
         }
 
+        Collections.sort(conditions, new Comparator<MatchCase>() {
+            @Override
+            public int compare(MatchCase o1, MatchCase o2) {
+                return o1.getPriority() - o2.getPriority();
+            }
+        });
+
+        BlockStatement resultBlock = block();
+        
+        for (MatchCase matchCase : conditions) {
+            resultBlock.addStatement(ifS(
+                    matchCase.getConditionExpression(),
+                    matchCase.getCaseStatement()
+            ));
+        }
 
         ClosureExpression closureExpression = closureX(
                 params(param(ClassHelper.OBJECT_TYPE, MATCH_PARAMETER_NAME)),
@@ -106,36 +113,21 @@ public class PatternMatchingMacroMethods {
         return callX(closureExpression, "call", it);
     }
 
-    public static Expression getCaseExpression(Expression leftExpression) {
-        if (leftExpression instanceof BinaryExpression) {
-            BinaryExpression binaryCaseExpression = (BinaryExpression) leftExpression;
+    public static void addErrorAndContinue(SourceUnit sourceUnit, String message, ASTNode node) {
+        SyntaxException syntaxException = new SyntaxException(message,
+                node.getLineNumber(),
+                node.getColumnNumber(),
+                node.getLastLineNumber(),
+                node.getLastColumnNumber()
+        );
+        sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
+    }
 
-            if (binaryCaseExpression.getOperation().isA(Types.BITWISE_OR)) {
-                return orX(
-                        getCaseExpression(binaryCaseExpression.getLeftExpression()),
-                        getCaseExpression(binaryCaseExpression.getRightExpression())
-                );
-            }
-        }
-
-        VariableExpression parameterExpression = varX(MATCH_PARAMETER_NAME);
-        BinaryExpression eqCheck = eqX(parameterExpression, leftExpression);
-
-        if (leftExpression instanceof ClassExpression) {
-            return andX(
-                    notNullX(parameterExpression),
-                    orX(eqCheck, eqX(callX(parameterExpression, "getClass"), leftExpression))
-            );
-        }
-
-        if (leftExpression instanceof RangeExpression) {
-            return callX(leftExpression, "contains", parameterExpression);
-        }
-
-        if (leftExpression instanceof ClosureExpression) {
-            return callX(leftExpression, "call", parameterExpression);
-        }
-
-        return eqCheck;
+    public static void addErrorAndContinue(SourceUnit sourceUnit, String message, Token token) {
+        SyntaxException syntaxException = new SyntaxException(message,
+                token.getStartLine(),
+                token.getStartColumn()
+        );
+        sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
     }
 }
