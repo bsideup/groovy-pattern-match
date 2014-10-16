@@ -13,8 +13,8 @@ import org.codehaus.groovy.control.messages.SyntaxErrorMessage;
 import org.codehaus.groovy.syntax.SyntaxException;
 import org.codehaus.groovy.syntax.Token;
 import org.codehaus.groovy.syntax.Types;
-import ru.trylogic.groovy.macro.transform.Macro;
-import ru.trylogic.groovy.macro.transform.MacroContext;
+import ru.trylogic.groovy.macro.runtime.Macro;
+import ru.trylogic.groovy.macro.runtime.MacroContext;
 import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
 import ru.trylogic.groovy.pattern.matcher.cases.MatchCase;
 
