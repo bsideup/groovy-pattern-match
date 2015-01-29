@@ -24,11 +24,11 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.*;
 
 public class PatternMatchingMacroMethods {
     
-    private static class MatchCaseException extends Exception {
+    private static class MatchCaseSyntaxException extends Exception {
         
         private final ASTNode node;
 
-        public MatchCaseException(ASTNode node) {
+        public MatchCaseSyntaxException(ASTNode node) {
             this.node = node;
         }
 
@@ -96,7 +96,7 @@ public class PatternMatchingMacroMethods {
                 List<Expression> thenArgumentsExpressions = thenArguments.getExpressions();
 
                 if (thenArgumentsExpressions.size() != 1) {
-                    throw new MatchCaseException(caseExpression);
+                    throw new MatchCaseSyntaxException(caseExpression);
                 }
 
                 Expression resultExpression = thenArgumentsExpressions.get(0);
@@ -119,20 +119,13 @@ public class PatternMatchingMacroMethods {
                     }
                     conditions.add(new AnyCase(resultExpression));
                 } else {
-                    throw new MatchCaseException(caseMethodCallExpression);
+                    throw new MatchCaseSyntaxException(caseMethodCallExpression);
                 }
-            } catch (MatchCaseException e) {
+            } catch (MatchCaseSyntaxException e) {
                 addErrorAndContinue(sourceUnit, "please use 'when ... then ... or ...' form", e.getNode());
                 continue;
             }
         }
-
-        Collections.sort(conditions, new Comparator<MatchCase>() {
-            @Override
-            public int compare(MatchCase o1, MatchCase o2) {
-                return o1.getPriority() - o2.getPriority();
-            }
-        });
 
         BlockStatement resultBlock = block();
         
@@ -153,17 +146,17 @@ public class PatternMatchingMacroMethods {
         return callX(closureExpression, "call", it);
     }
     
-    protected static Expression getMatchConditionExpression(MethodCallExpression caseMethodCallExpression) throws MatchCaseException {
+    protected static Expression getMatchConditionExpression(MethodCallExpression caseMethodCallExpression) throws MatchCaseSyntaxException {
         Expression thenObjectExpression = caseMethodCallExpression.getObjectExpression();
 
         if (!(thenObjectExpression instanceof MethodCallExpression)) {
-            throw new MatchCaseException(thenObjectExpression);
+            throw new MatchCaseSyntaxException(thenObjectExpression);
         }
 
         MethodCallExpression whenMethodCallExpression = (MethodCallExpression) thenObjectExpression;
 
         if (!"when".equals(whenMethodCallExpression.getMethodAsString())) {
-            throw new MatchCaseException(thenObjectExpression);
+            throw new MatchCaseSyntaxException(thenObjectExpression);
         }
 
         ArgumentListExpression whenArguments = InvocationWriter.makeArgumentList(whenMethodCallExpression.getArguments());
@@ -171,7 +164,7 @@ public class PatternMatchingMacroMethods {
         List<Expression> whenArgumentsExpressions = whenArguments.getExpressions();
 
         if (whenArgumentsExpressions.size() != 1) {
-            throw new MatchCaseException(thenObjectExpression);
+            throw new MatchCaseSyntaxException(thenObjectExpression);
         }
 
         return whenArgumentsExpressions.get(0);

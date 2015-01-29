@@ -16,11 +16,6 @@ public abstract class AbstractParametrizedMatchCase extends AbstractMatchCase {
     }
 
     @Override
-    public int getPriority() {
-        return 0;
-    }
-
-    @Override
     public abstract Expression getConditionExpression();
 
     @Override

@@ -12,11 +12,6 @@ public class AnyCase extends AbstractMatchCase {
     }
 
     @Override
-    public int getPriority() {
-        return Integer.MAX_VALUE;
-    }
-
-    @Override
     public Expression getConditionExpression() {
         return constX(true);
     }

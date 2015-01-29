@@ -8,6 +8,4 @@ public interface MatchCase {
     Expression getConditionExpression();
     
     Statement getCaseStatement();
-
-    int getPriority();
 }
