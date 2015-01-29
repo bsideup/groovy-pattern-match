@@ -15,7 +15,6 @@ import org.codehaus.groovy.syntax.SyntaxException;
 import ru.trylogic.groovy.macro.runtime.Macro;
 import ru.trylogic.groovy.macro.runtime.MacroContext;
 import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
-import ru.trylogic.groovy.pattern.matcher.cases.AnyCase;
 import ru.trylogic.groovy.pattern.matcher.cases.MatchCase;
 import ru.trylogic.groovy.pattern.matcher.cases.MultiCase;
 
@@ -67,12 +66,13 @@ public class PatternMatchingMacroMethods {
             statements = Arrays.asList(originalCode);
         }
 
-        List<MatchCase> conditions = new ArrayList<MatchCase>();
-
         VariableExpression parameterExpression = varX(PatternMatchingMacroMethods.MATCH_PARAMETER_NAME);
 
         MatchCaseFactory matchCaseFactory = new MatchCaseFactory();
 
+
+        BlockStatement resultBlock = block();
+        
         Iterator<Statement> statementIterator = statements.iterator();
         while(statementIterator.hasNext()) {
             Statement statement = statementIterator.next();
@@ -106,13 +106,17 @@ public class PatternMatchingMacroMethods {
 
                     MatchCase matchCaseProvider = getMatchCase(caseMethodCallExpression, matchCaseFactory, parameterExpression, resultExpression);
 
-                    conditions.add(matchCaseProvider);
+                    resultBlock.addStatement(ifS(
+                            matchCaseProvider.getConditionExpression(),
+                            matchCaseProvider.getCaseStatement()
+                    ));
                 } else if ("orElse".equals(caseMethodCallExpression.getMethodAsString())) {
 
                     if (statementIterator.hasNext()) {
                         addErrorAndContinue(sourceUnit, "orElse should be last match statement", caseMethodCallExpression);
                     }
-                    conditions.add(new AnyCase(resultExpression));
+
+                    resultBlock.addStatement(returnS(resultExpression));
                 } else {
                     throw new MatchCaseSyntaxException(caseMethodCallExpression);
                 }
@@ -121,16 +125,7 @@ public class PatternMatchingMacroMethods {
                 continue;
             }
         }
-
-        BlockStatement resultBlock = block();
         
-        for (MatchCase matchCase : conditions) {
-            resultBlock.addStatement(ifS(
-                    matchCase.getConditionExpression(),
-                    matchCase.getCaseStatement()
-            ));
-        }
-
         ClosureExpression closureExpression = closureX(
                 params(param(ClassHelper.OBJECT_TYPE, MATCH_PARAMETER_NAME)),
                 resultBlock
