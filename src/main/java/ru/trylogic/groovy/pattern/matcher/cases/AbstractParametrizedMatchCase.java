@@ -4,14 +4,15 @@ import org.codehaus.groovy.ast.expr.Expression;
 import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.ast.stmt.Statement;
 
-import static org.codehaus.groovy.ast.tools.GeneralUtils.*;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.returnS;
 
-public abstract class AbstractMatchCase implements MatchCase {
+public abstract class AbstractParametrizedMatchCase extends AbstractMatchCase {
 
-    protected final Expression valueExpression;
+    protected final VariableExpression parameterExpression;
 
-    public AbstractMatchCase(Expression valueExpression) {
-        this.valueExpression = valueExpression;
+    public AbstractParametrizedMatchCase(VariableExpression parameterExpression, Expression valueExpression) {
+        super(valueExpression);
+        this.parameterExpression = parameterExpression;
     }
 
     @Override

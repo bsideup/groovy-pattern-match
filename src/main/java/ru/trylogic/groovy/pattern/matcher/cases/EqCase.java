@@ -5,7 +5,7 @@ import org.codehaus.groovy.ast.expr.VariableExpression;
 
 import static org.codehaus.groovy.ast.tools.GeneralUtils.eqX;
 
-public class EqCase extends AbstractMatchCase {
+public class EqCase extends AbstractParametrizedMatchCase {
     
     protected final Expression expression;
 

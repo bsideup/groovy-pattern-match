@@ -21,7 +21,8 @@ group = 'ru.trylogic.groovy.pattern'
 version = '0.1.0'
 
 dependencies {
-    compile 'ru.trylogic.groovy.macro:groovy-macro-methods:0.2.0'
+    compile 'org.codehaus.groovy:groovy-all:2.4.0'
+    compile 'ru.trylogic.groovy.macro:groovy-macro-methods:0.3.0'
     
     testCompile 'junit:junit:4.11'
 }

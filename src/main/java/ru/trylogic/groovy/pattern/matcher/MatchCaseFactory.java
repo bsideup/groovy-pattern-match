@@ -27,14 +27,6 @@ public class MatchCaseFactory {
         if (expression instanceof ClosureExpression) {
             return new ClosureCase(parameterExpression, (ClosureExpression) expression, valueExpression);
         }
-        
-        if(expression instanceof VariableExpression) {
-            VariableExpression variableExpression = (VariableExpression) expression;
-            
-            if(variableExpression.getName().equals(parameterExpression.getName())) {
-                return new AnyCase(parameterExpression, valueExpression);
-            }
-        }
 
         return new EqCase(parameterExpression, expression, valueExpression);
     }

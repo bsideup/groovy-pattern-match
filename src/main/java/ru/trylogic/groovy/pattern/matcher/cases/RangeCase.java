@@ -6,7 +6,7 @@ import org.codehaus.groovy.ast.expr.VariableExpression;
 
 import static org.codehaus.groovy.ast.tools.GeneralUtils.callX;
 
-public class RangeCase extends AbstractMatchCase {
+public class RangeCase extends AbstractParametrizedMatchCase {
     
     protected final RangeExpression rangeException;
     

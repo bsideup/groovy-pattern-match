@@ -8,10 +8,10 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def fact(num) {
             return match(num) {
-                String >> fact(num.toInteger())
-                (0 | 1) >> 1
-                2 >> 2
-                _ >> _ * fact(_ - 1)
+                when String then fact(num.toInteger())
+                when (0 | 1) then 1
+                when 2 then 2
+                orElse it * fact(it - 1)
             }
         }
         
@@ -23,8 +23,8 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(num) {
             return match(num) {
-                (1 | 2 | 3) >> _ * _
-                _ >> _
+                when (1 | 2 | 3) then it * it
+                orElse it
             }
         }
          
@@ -39,10 +39,10 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(num) {
             return match(num) {
-                (1 | 2 | 3) >> _ * _
-                _ >> match(_) {
-                        4 >> 10
-                        _ >> _
+                when (1 | 2 | 3) then it * it
+                orElse match(it) {
+                        when 4 then 10
+                        orElse it
                     }
             }
         }
@@ -59,9 +59,9 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(int num) {
             return match(num) {
-                (0 | 1 | 2 | 3) >> 1
-                (4 | 5) >> 2
-                _ >> 3
+                when (0 | 1 | 2 | 3) then 1
+                when (4 | 5) then 2
+                orElse 3
             }
         }
         
@@ -83,9 +83,9 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(Object it) {
             return match(it) {
-                (String | Integer) >> "string or integer"
-                Date >> "date"
-                _ >> "unknown type"
+                when (String | Integer) then "string or integer"
+                when Date then "date"
+                orElse "unknown type"
             }
         }
          
@@ -101,9 +101,9 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(int num) {
             return match(num) {
-                0..3 >> 1
-                (4 | 5) >> 2
-                _ >> 3
+                when 0..3 then 1
+                when (4 | 5) then 2
+                orElse 3
             }
         }
         
@@ -125,8 +125,8 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(Date date) {
             return date.match {
-                { _ -> _.after(new Date("2007/1/2")) } >> "after Groovy"
-                _ >> "before Groovy"
+                when { after(new Date("2007/1/2")) } then "after Groovy"
+                orElse "before Groovy"
             }
         }
         
@@ -139,8 +139,8 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher = { Date date ->
             return date.match {
-                { _ -> _.after(new Date("2007/1/2")) } >> "after Groovy"
-                _ >> "before Groovy"
+                when { it.after(new Date("2007/1/2")) } then "after Groovy"
+                orElse "before Groovy"
             }
         }
         

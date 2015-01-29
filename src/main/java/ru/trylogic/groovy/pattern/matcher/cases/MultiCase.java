@@ -8,9 +8,7 @@ import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
 
 import static org.codehaus.groovy.ast.tools.GeneralUtils.orX;
 
-public class MultiCase extends AbstractMatchCase {
-    
-    protected final VariableExpression parameterExpression;
+public class MultiCase extends AbstractParametrizedMatchCase {
     
     protected final BinaryExpression expression;
     
@@ -18,7 +16,6 @@ public class MultiCase extends AbstractMatchCase {
 
     public MultiCase(VariableExpression parameterExpression, BinaryExpression expression, MatchCaseFactory matchCaseFactory, Expression valueExpression) {
         super(parameterExpression, valueExpression);
-        this.parameterExpression = parameterExpression;
         this.expression = expression;
         this.matchCaseFactory = matchCaseFactory;
 

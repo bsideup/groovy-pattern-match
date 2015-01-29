@@ -6,8 +6,9 @@ import org.codehaus.groovy.ast.expr.VariableExpression;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.*;
 
 public class AnyCase extends AbstractMatchCase {
-    public AnyCase(VariableExpression parameterExpression, Expression valueExpression) {
-        super(parameterExpression, valueExpression);
+    
+    public AnyCase(Expression valueExpression) {
+        super(valueExpression);
     }
 
     @Override

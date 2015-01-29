@@ -8,14 +8,14 @@ import org.codehaus.groovy.ast.expr.*;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
+import org.codehaus.groovy.classgen.asm.InvocationWriter;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage;
 import org.codehaus.groovy.syntax.SyntaxException;
-import org.codehaus.groovy.syntax.Token;
-import org.codehaus.groovy.syntax.Types;
 import ru.trylogic.groovy.macro.runtime.Macro;
 import ru.trylogic.groovy.macro.runtime.MacroContext;
 import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
+import ru.trylogic.groovy.pattern.matcher.cases.AnyCase;
 import ru.trylogic.groovy.pattern.matcher.cases.MatchCase;
 
 import java.util.*;
@@ -23,8 +23,21 @@ import java.util.*;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.*;
 
 public class PatternMatchingMacroMethods {
+    
+    private static class MatchCaseException extends Exception {
+        
+        private final ASTNode node;
 
-    public static final String MATCH_PARAMETER_NAME = "_";
+        public MatchCaseException(ASTNode node) {
+            this.node = node;
+        }
+
+        public ASTNode getNode() {
+            return node;
+        }
+    }
+
+    public static final String MATCH_PARAMETER_NAME = "it";
     
     //For auto-complete, can be removed
     public static <T> T match(Object self, Object it, Closure cl) {
@@ -58,33 +71,60 @@ public class PatternMatchingMacroMethods {
         VariableExpression parameterExpression = varX(PatternMatchingMacroMethods.MATCH_PARAMETER_NAME);
 
         MatchCaseFactory matchCaseFactory = new MatchCaseFactory();
-        for (Statement statement : statements) {
-            if (!(statement instanceof ExpressionStatement)) {
-                addErrorAndContinue(sourceUnit, "only ExpressionStatement is allowed as case", statement);
-                continue;
-            }
 
-            Expression caseExpression = ((ExpressionStatement) statement).getExpression();
-
-            if (!(caseExpression instanceof BinaryExpression)) {
-                addErrorAndContinue(sourceUnit, "case should be BinaryExpression", caseExpression);
-                continue;
-            }
-
-            BinaryExpression binaryExpression = (BinaryExpression) caseExpression;
-
-            Token operation = binaryExpression.getOperation();
-            if (!operation.isA(Types.RIGHT_SHIFT)) {
-                addErrorAndContinue(sourceUnit, "case expressions should be divided by >>", operation);
-                continue;
-            }
-
-            MatchCase matchCaseProvider = matchCaseFactory.getCaseConditionProvider(
-                    parameterExpression,
-                    binaryExpression.getLeftExpression(),
-                    binaryExpression.getRightExpression());
+        Iterator<Statement> statementIterator = statements.iterator();
+        while(statementIterator.hasNext()) {
+            Statement statement = statementIterator.next();
             
-            conditions.add(matchCaseProvider);
+            try {
+                if (!(statement instanceof ExpressionStatement)) {
+                    addErrorAndContinue(sourceUnit, "only ExpressionStatement is allowed as case", statement);
+                    continue;
+                }
+
+                Expression caseExpression = ((ExpressionStatement) statement).getExpression();
+
+                if (!(caseExpression instanceof MethodCallExpression)) {
+                    addErrorAndContinue(sourceUnit, "case should be MethodCallExpression", caseExpression);
+                    continue;
+                }
+
+                MethodCallExpression caseMethodCallExpression = (MethodCallExpression) caseExpression;
+
+                ArgumentListExpression thenArguments = InvocationWriter.makeArgumentList(caseMethodCallExpression.getArguments());
+
+                List<Expression> thenArgumentsExpressions = thenArguments.getExpressions();
+
+                if (thenArgumentsExpressions.size() != 1) {
+                    throw new MatchCaseException(caseExpression);
+                }
+
+                Expression resultExpression = thenArgumentsExpressions.get(0);
+
+                if ("then".equals(caseMethodCallExpression.getMethodAsString())) {
+
+                    Expression conditionExpression = getMatchConditionExpression(caseMethodCallExpression);
+
+                    MatchCase matchCaseProvider = matchCaseFactory.getCaseConditionProvider(
+                            parameterExpression,
+                            conditionExpression,
+                            resultExpression
+                    );
+
+                    conditions.add(matchCaseProvider);
+                } else if ("orElse".equals(caseMethodCallExpression.getMethodAsString())) {
+
+                    if (statementIterator.hasNext()) {
+                        addErrorAndContinue(sourceUnit, "orElse should be last match statement", caseMethodCallExpression);
+                    }
+                    conditions.add(new AnyCase(resultExpression));
+                } else {
+                    throw new MatchCaseException(caseMethodCallExpression);
+                }
+            } catch (MatchCaseException e) {
+                addErrorAndContinue(sourceUnit, "please use 'when ... then ... or ...' form", e.getNode());
+                continue;
+            }
         }
 
         Collections.sort(conditions, new Comparator<MatchCase>() {
@@ -112,6 +152,30 @@ public class PatternMatchingMacroMethods {
 
         return callX(closureExpression, "call", it);
     }
+    
+    protected static Expression getMatchConditionExpression(MethodCallExpression caseMethodCallExpression) throws MatchCaseException {
+        Expression thenObjectExpression = caseMethodCallExpression.getObjectExpression();
+
+        if (!(thenObjectExpression instanceof MethodCallExpression)) {
+            throw new MatchCaseException(thenObjectExpression);
+        }
+
+        MethodCallExpression whenMethodCallExpression = (MethodCallExpression) thenObjectExpression;
+
+        if (!"when".equals(whenMethodCallExpression.getMethodAsString())) {
+            throw new MatchCaseException(thenObjectExpression);
+        }
+
+        ArgumentListExpression whenArguments = InvocationWriter.makeArgumentList(whenMethodCallExpression.getArguments());
+
+        List<Expression> whenArgumentsExpressions = whenArguments.getExpressions();
+
+        if (whenArgumentsExpressions.size() != 1) {
+            throw new MatchCaseException(thenObjectExpression);
+        }
+
+        return whenArgumentsExpressions.get(0);
+    }
 
     public static void addErrorAndContinue(SourceUnit sourceUnit, String message, ASTNode node) {
         SyntaxException syntaxException = new SyntaxException(message,
@@ -119,14 +183,6 @@ public class PatternMatchingMacroMethods {
                 node.getColumnNumber(),
                 node.getLastLineNumber(),
                 node.getLastColumnNumber()
-        );
-        sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
-    }
-
-    public static void addErrorAndContinue(SourceUnit sourceUnit, String message, Token token) {
-        SyntaxException syntaxException = new SyntaxException(message,
-                token.getStartLine(),
-                token.getStartColumn()
         );
         sourceUnit.getErrorCollector().addErrorAndContinue(new SyntaxErrorMessage(syntaxException, sourceUnit));
     }
