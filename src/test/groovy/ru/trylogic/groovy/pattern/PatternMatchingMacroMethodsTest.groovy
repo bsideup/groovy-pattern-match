@@ -9,7 +9,7 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         def fact(num) {
             return match(num) {
                 when String then fact(num.toInteger())
-                when (0 | 1) then 1
+                when 0 or 1 then 1
                 when 2 then 2
                 orElse it * fact(it - 1)
             }
@@ -23,7 +23,7 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(num) {
             return match(num) {
-                when (1 | 2 | 3) then it * it
+                when 1 or 2 or 3 then it * it
                 orElse it
             }
         }
@@ -39,7 +39,7 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(num) {
             return match(num) {
-                when (1 | 2 | 3) then it * it
+                when 1 or 2 or 3 then it * it
                 orElse match(it) {
                         when 4 then 10
                         orElse it
@@ -59,8 +59,8 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(int num) {
             return match(num) {
-                when (0 | 1 | 2 | 3) then 1
-                when (4 | 5) then 2
+                when 0 or 1 or 2 or 3 then 1
+                when 4 or 5 then 2
                 orElse 3
             }
         }
@@ -83,7 +83,7 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         assertScript '''
         def matcher(Object it) {
             return match(it) {
-                when (String | Integer) then "string or integer"
+                when String or Integer then "string or integer"
                 when Date then "date"
                 orElse "unknown type"
             }
@@ -102,7 +102,7 @@ class PatternMatchingMacroMethodsTest extends GroovyTestCase {
         def matcher(int num) {
             return match(num) {
                 when 0..3 then 1
-                when (4 | 5) then 2
+                when 4 or 5 then 2
                 orElse 3
             }
         }

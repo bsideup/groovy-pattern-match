@@ -17,6 +17,7 @@ import ru.trylogic.groovy.macro.runtime.MacroContext;
 import ru.trylogic.groovy.pattern.matcher.MatchCaseFactory;
 import ru.trylogic.groovy.pattern.matcher.cases.AnyCase;
 import ru.trylogic.groovy.pattern.matcher.cases.MatchCase;
+import ru.trylogic.groovy.pattern.matcher.cases.MultiCase;
 
 import java.util.*;
 
@@ -103,13 +104,7 @@ public class PatternMatchingMacroMethods {
 
                 if ("then".equals(caseMethodCallExpression.getMethodAsString())) {
 
-                    Expression conditionExpression = getMatchConditionExpression(caseMethodCallExpression);
-
-                    MatchCase matchCaseProvider = matchCaseFactory.getCaseConditionProvider(
-                            parameterExpression,
-                            conditionExpression,
-                            resultExpression
-                    );
+                    MatchCase matchCaseProvider = getMatchCase(caseMethodCallExpression, matchCaseFactory, parameterExpression, resultExpression);
 
                     conditions.add(matchCaseProvider);
                 } else if ("orElse".equals(caseMethodCallExpression.getMethodAsString())) {
@@ -122,7 +117,7 @@ public class PatternMatchingMacroMethods {
                     throw new MatchCaseSyntaxException(caseMethodCallExpression);
                 }
             } catch (MatchCaseSyntaxException e) {
-                addErrorAndContinue(sourceUnit, "please use 'when ... then ... or ...' form", e.getNode());
+                addErrorAndContinue(sourceUnit, "please use 'when ...[or ...] then ... orElse ...' form", e.getNode());
                 continue;
             }
         }
@@ -146,31 +141,58 @@ public class PatternMatchingMacroMethods {
         return callX(closureExpression, "call", it);
     }
     
-    protected static Expression getMatchConditionExpression(MethodCallExpression caseMethodCallExpression) throws MatchCaseSyntaxException {
+    protected static MatchCase getMatchCase(MethodCallExpression caseMethodCallExpression, MatchCaseFactory matchCaseFactory, VariableExpression parameterExpression, Expression resultExpression) throws MatchCaseSyntaxException {
         Expression thenObjectExpression = caseMethodCallExpression.getObjectExpression();
 
         if (!(thenObjectExpression instanceof MethodCallExpression)) {
             throw new MatchCaseSyntaxException(thenObjectExpression);
         }
 
-        MethodCallExpression whenMethodCallExpression = (MethodCallExpression) thenObjectExpression;
+        MethodCallExpression objectMethodCallExpression = (MethodCallExpression) thenObjectExpression;
 
-        if (!"when".equals(whenMethodCallExpression.getMethodAsString())) {
+        List<Expression> options = new ArrayList<Expression>();
+        
+        while(!"when".equals(objectMethodCallExpression.getMethodAsString())) {
+            if(!"or".equals(objectMethodCallExpression.getMethodAsString())) {
+                throw new MatchCaseSyntaxException(objectMethodCallExpression);
+            }
+            
+            Expression option = getSingleArgument(objectMethodCallExpression);
+            options.add(option);
+            
+            objectMethodCallExpression = (MethodCallExpression) objectMethodCallExpression.getObjectExpression();
+        }
+
+        if (!"when".equals(objectMethodCallExpression.getMethodAsString())) {
             throw new MatchCaseSyntaxException(thenObjectExpression);
         }
 
-        ArgumentListExpression whenArguments = InvocationWriter.makeArgumentList(whenMethodCallExpression.getArguments());
-
-        List<Expression> whenArgumentsExpressions = whenArguments.getExpressions();
-
-        if (whenArgumentsExpressions.size() != 1) {
-            throw new MatchCaseSyntaxException(thenObjectExpression);
+        options.add(getSingleArgument(objectMethodCallExpression));
+        
+        if(options.size() > 1) {
+            return new MultiCase(parameterExpression, options, matchCaseFactory, resultExpression);
         }
 
-        return whenArgumentsExpressions.get(0);
+        return  matchCaseFactory.getCaseConditionProvider(
+                parameterExpression,
+                options.get(0),
+                resultExpression
+        );
+    }
+    
+    protected static Expression getSingleArgument(MethodCallExpression objectMethodCallExpression) throws MatchCaseSyntaxException {
+        ArgumentListExpression orArguments = InvocationWriter.makeArgumentList(objectMethodCallExpression.getArguments());
+
+        List<Expression> orArgumentsExpressions = orArguments.getExpressions();
+
+        if (orArgumentsExpressions.size() != 1) {
+            throw new MatchCaseSyntaxException(objectMethodCallExpression);
+        }
+
+        return orArgumentsExpressions.get(0);
     }
 
-    public static void addErrorAndContinue(SourceUnit sourceUnit, String message, ASTNode node) {
+    protected static void addErrorAndContinue(SourceUnit sourceUnit, String message, ASTNode node) {
         SyntaxException syntaxException = new SyntaxException(message,
                 node.getLineNumber(),
                 node.getColumnNumber(),
